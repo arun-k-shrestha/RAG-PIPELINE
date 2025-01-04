@@ -1,0 +1,9 @@
+chunk_tokens: 700
+chunk_overlap: 120
+retrieve_top_k: 40
+rerank_top_k: 8
+embedding_model: sentence-transformers/all-MiniLM-L6-v2
+reranker_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+index_path: ./faiss.index
+metadata_path: ./chunks_meta.jsonl
+speaker_chunking: true  
