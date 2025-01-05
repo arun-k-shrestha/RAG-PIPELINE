@@ -1,11 +1,14 @@
-import faiss
-import numpy as np
+import pathlib, yaml
 
-print("Hi")
-embeddings = np.array([
-    [0.1, 0.2, 0.3],   # sentence 1
-    [0.2, 0.1, 0.0],   # sentence 2
-    [0.9, 0.8, 0.7]    # sentence 3
-]).astype('float32')
 
-print("Embeddings:", embeddings)
+# ---------------- Config ----------------
+CFG = yaml.safe_load(open("rag_config.yaml"))
+CHUNK_TOKENS = CFG["chunk_tokens"]
+CHUNK_OVERLAP = CFG["chunk_overlap"]
+TOP_K = CFG["retrieve_top_k"]
+RERANK_TOP_K = CFG["rerank_top_k"]
+INDEX_PATH = pathlib.Path(CFG["index_path"])
+META_PATH = pathlib.Path(CFG["metadata_path"])
+EMB_NAME = CFG["embedding_model"]
+RERANK_NAME = CFG["reranker_model"]
+SPEAKER_CHUNKING = CFG.get("speaker_chunking", True)
