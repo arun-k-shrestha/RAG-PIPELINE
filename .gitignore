@@ -1,0 +1,31 @@
+# --- Python & Virtual Envs ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+*.egg-info/
+pip-wheel-metadata/
+
+# --- IDE & Editor ---
+.vscode/
+.settings/
+.idea/
+*.code-workspace
+
+# --- Data & Cache ---
+data/*.faiss
+data/*.json
+data/*.csv
+data/*.pkl
+data/*.db
+
+# --- System Files ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+*.tmp
