@@ -12,7 +12,7 @@ INDEX_PATH = pathlib.Path(CFG["index_path"])
 META_PATH = pathlib.Path(CFG["metadata_path"])
 EMB_NAME = CFG["embedding_model"]
 RERANK_NAME = CFG["reranker_model"]
-SPEAKER_CHUNKING = CFG.get("speaker_chunking", False)
+SPEAKER_CHUNKING = CFG.get("speaker_chunking", True)
 
 # ---------------- Tokenizer ----------------
 import tiktoken
@@ -80,3 +80,11 @@ def semantic_chunks(text: str, doc_id: str) -> List[Dict[str, Any]]:
         print("No speaker chunking")
         return chunk_segment(text, doc_id, None, CHUNK_TOKENS, CHUNK_OVERLAP)
     
+# ---------------- Load docs ----------------
+DATA_DIR = pathlib.Path("data")
+docs = []
+for p in sorted(DATA_DIR.glob("*.txt")):
+    docs.append({"doc_id": p.stem, "text": p.read_text(encoding="utf-8")})
+    print(p.resolve())
+if not docs:
+    raise SystemExit("No docs found in data/*.txt")
