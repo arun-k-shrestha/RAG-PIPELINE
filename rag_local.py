@@ -1,6 +1,6 @@
 import os, json, pathlib, re, yaml
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from rich import print as rprint
 # ---------------- Config ----------------
 CFG = yaml.safe_load(open("rag_config.yaml"))
@@ -12,7 +12,7 @@ INDEX_PATH = pathlib.Path(CFG["index_path"])
 META_PATH = pathlib.Path(CFG["metadata_path"])
 EMB_NAME = CFG["embedding_model"]
 RERANK_NAME = CFG["reranker_model"]
-SPEAKER_CHUNKING = CFG.get("speaker_chunking", True)
+SPEAKER_CHUNKING = CFG.get("speaker_chunking", False)
 
 # ---------------- Tokenizer ----------------
 import tiktoken
@@ -27,6 +27,7 @@ def detok(ids: List[int]) -> str:
 SPEAKER_RE = re.compile(r"^\s*([A-Z][A-Za-z .&'-]{1,40}):\s*", re.M)  # e.g., "Operator:", "Tim Cook:", "CFO:"
 
 
+# This is a simple rule-based speaker segmentation.
 def split_by_speaker(text: str) -> List[Dict[str, Any]]:
     """
     Returns segments like: {"speaker": "CFO", "text": "..."}.
@@ -43,3 +44,39 @@ def split_by_speaker(text: str) -> List[Dict[str, Any]]:
         seg_text = re.sub(r"^\s*"+re.escape(spk)+r":\s*", "", seg_text, count=1, flags=re.M)
         segments.append({"speaker": spk.strip(), "text": seg_text.strip()})
     return segments
+
+# This chunks a segment of text (with optional speaker) into smaller chunks with overlap.
+def chunk_segment(seg_text: str, doc_id: str, speaker: Optional[str], chunk_tokens=3, overlap_tokens=2):
+    ids = tok(seg_text)
+    n = len(ids)
+    out = []
+    start = 0
+    cid = 0
+    while start < n:
+        end = min(n, start + chunk_tokens)
+        sub = ids[start:end]
+        text = detok(sub)
+        out.append({
+            "chunk_id": f"{doc_id}#{speaker or 'UNK'}#{cid}",
+            "doc_id": doc_id,
+            "speaker": speaker,
+            "text": text
+        })
+        cid += 1
+        if end == n: break
+        start = end - overlap_tokens
+    return out
+
+# This function calls to chunk text, with or without speaker segmentation.
+def semantic_chunks(text: str, doc_id: str) -> List[Dict[str, Any]]:
+    if SPEAKER_CHUNKING:
+        segs = split_by_speaker(text)
+        chunks = []
+        for seg in segs:
+            chunks.extend(chunk_segment(seg["text"], doc_id, seg["speaker"], CHUNK_TOKENS, CHUNK_OVERLAP))
+        print(chunks)
+        return chunks
+    else:
+        print("No speaker chunking")
+        return chunk_segment(text, doc_id, None, CHUNK_TOKENS, CHUNK_OVERLAP)
+    
