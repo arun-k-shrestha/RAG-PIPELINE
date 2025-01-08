@@ -88,3 +88,10 @@ for p in sorted(DATA_DIR.glob("*.txt")):
     print(p.resolve())
 if not docs:
     raise SystemExit("No docs found in data/*.txt")
+
+
+all_chunks: List[Dict[str,Any]] = []
+for d in docs:
+    all_chunks.extend(semantic_chunks(d["text"],d["doc_id"]))
+    rprint(f"[bold green]Chunked[/] {len(all_chunks)} chunks from {len(docs)} docs.")
+
