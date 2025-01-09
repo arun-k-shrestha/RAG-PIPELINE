@@ -2,6 +2,9 @@ import os, json, pathlib, re, yaml
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from rich import print as rprint
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
 # ---------------- Config ----------------
 CFG = yaml.safe_load(open("rag_config.yaml"))
 CHUNK_TOKENS = CFG["chunk_tokens"]
@@ -46,7 +49,7 @@ def split_by_speaker(text: str) -> List[Dict[str, Any]]:
     return segments
 
 # This chunks a segment of text (with optional speaker) into smaller chunks with overlap.
-def chunk_segment(seg_text: str, doc_id: str, speaker: Optional[str], chunk_tokens=3, overlap_tokens=2):
+def chunk_segment(seg_text: str, doc_id: str, speaker: Optional[str], chunk_tokens=700, overlap_tokens=120):
     ids = tok(seg_text)
     n = len(ids)
     out = []
@@ -91,7 +94,20 @@ if not docs:
 
 
 all_chunks: List[Dict[str,Any]] = []
+
 for d in docs:
     all_chunks.extend(semantic_chunks(d["text"],d["doc_id"]))
     rprint(f"[bold green]Chunked[/] {len(all_chunks)} chunks from {len(docs)} docs.")
 
+
+# --------------- Embeddings ---------------
+EMB_NAME = "all-MiniLM-L6-v2"
+emb_model = SentenceTransformer(EMB_NAME)
+
+def embed_texts(texts:List[str]) -> np.ndarray:
+    embeddings = emb_model.encode(texts, show_progress_bar=False, convert_to_numpy=True, normalize_embeddings=True)
+    return embeddings.astype("float32")
+
+# ---------------- FAISS index ----------------
+
+dimention = emb_model.get_sentence_embedding_dimension()
