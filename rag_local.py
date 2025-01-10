@@ -77,7 +77,6 @@ def semantic_chunks(text: str, doc_id: str) -> List[Dict[str, Any]]:
         chunks = []
         for seg in segs:
             chunks.extend(chunk_segment(seg["text"], doc_id, seg["speaker"], CHUNK_TOKENS, CHUNK_OVERLAP))
-        print(chunks)
         return chunks
     else:
         print("No speaker chunking")
@@ -99,7 +98,6 @@ for d in docs:
     all_chunks.extend(semantic_chunks(d["text"],d["doc_id"]))
     rprint(f"[bold green]Chunked[/] {len(all_chunks)} chunks from {len(docs)} docs.")
 
-
 # --------------- Embeddings ---------------
 EMB_NAME = "all-MiniLM-L6-v2"
 emb_model = SentenceTransformer(EMB_NAME)
@@ -110,4 +108,24 @@ def embed_texts(texts:List[str]) -> np.ndarray:
 
 # ---------------- FAISS index ----------------
 
-dimention = emb_model.get_sentence_embedding_dimension()
+dimension = emb_model.get_sentence_embedding_dimension()
+
+print(faiss.IndexFlatIP(dimension))
+
+def build_or_load_index(chunks: List[Dict[str,Any]]):
+    if INDEX_PATH.exists() or META_PATH.exists():
+        rprint("[green]Loading existing FAISS index…[/]")
+        idx = faiss.read_index(str(INDEX_PATH))
+        meta = [json.loads(l) for l in open(META_PATH, "r", encoding="utf-8")]
+        return idx, meta
+    texts = [c["text"] for c in chunks]
+    vecs = embed_texts(texts)
+    idx = faiss.IndexFlatIP(dimension)
+    idx.add(vecs)
+    faiss.write_index(idx,str(INDEX_PATH))
+    with open(META_PATH, "w",encoding="utf-8") as f:
+        for c in chunks:
+            f.write(json.dumps(c, ensure_ascii=False) + "\n")
+    return idx, chunks
+       
+index, meta = build_or_load_index(all_chunks)
