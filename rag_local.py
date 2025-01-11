@@ -129,3 +129,22 @@ def build_or_load_index(chunks: List[Dict[str,Any]]):
     return idx, chunks
        
 index, meta = build_or_load_index(all_chunks)
+
+# ---------------- First-stage retrieval ----------------
+
+def retreive(query:str,top_k=40):
+    query_embed = embed_texts([query])
+    similarity_scores,closest_vectors_indicies = index.search(query_embed,top_k)
+    hits = []
+    for score, idx in zip(similarity_scores[0], closest_vectors_indicies[0]):
+        c = meta[idx]
+        hits.append({
+            "idx": int(idx),
+            "score": float(score),
+            "chunk_id": c["chunk_id"],
+            "doc_id": c["doc_id"],
+            "speaker": c.get("speaker"),
+            "text": c["text"]
+        })
+    return hits
+
