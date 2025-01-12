@@ -2,7 +2,7 @@ import os, json, pathlib, re, yaml
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from rich import print as rprint
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer,CrossEncoder
 import faiss
 import numpy as np
 # ---------------- Config ----------------
@@ -99,7 +99,6 @@ for d in docs:
     rprint(f"[bold green]Chunked[/] {len(all_chunks)} chunks from {len(docs)} docs.")
 
 # --------------- Embeddings ---------------
-EMB_NAME = "all-MiniLM-L6-v2"
 emb_model = SentenceTransformer(EMB_NAME)
 
 def embed_texts(texts:List[str]) -> np.ndarray:
@@ -147,4 +146,18 @@ def retreive(query:str,top_k=40):
             "text": c["text"]
         })
     return hits
+
+# ---------------- Local cross-encoder reranker ----------------
+
+reranker = CrossEncoder(RERANK_NAME)
+
+def rerank(query: str,candidates:List[Dict[str,Any]],keep=8):
+    pairs = [(query, c["text"]) for c in candidates]
+    stores = reranker.predict(pairs, show_progress_bar=False)
+    for c,s in zip(candidates,stores):
+        c["rerank_scores"] = float(s)
+        candidates.sort(key=lambda x : x["rerank_score"], reverse=True)
+    return candidates[:keep]
+
+
 
