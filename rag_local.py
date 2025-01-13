@@ -5,6 +5,8 @@ from rich import print as rprint
 from sentence_transformers import SentenceTransformer,CrossEncoder
 import faiss
 import numpy as np
+import itertools
+import heapq
 # ---------------- Config ----------------
 CFG = yaml.safe_load(open("rag_config.yaml"))
 CHUNK_TOKENS = CFG["chunk_tokens"]
@@ -158,6 +160,34 @@ def rerank(query: str,candidates:List[Dict[str,Any]],keep=8):
         c["rerank_scores"] = float(s)
         candidates.sort(key=lambda x : x["rerank_score"], reverse=True)
     return candidates[:keep]
+
+# ----------------- Generator -----------------
+def summarize_locally(question: str, top_chunks: List[Dict[str, Any]]) -> str:
+    import heapq
+    question_terms = set(re.findall(r"[A-Za-z0-9%.\-]+", question.lower()))
+    scored_sents = []
+    counter = itertools.count() # unique increasing counter
+    for c in top_chunks:
+        # split into candidate sentences
+        for s in re.split(r"(?<=[.!?])\s+", c["text"]):
+            if not s.strip(): continue
+            terms = set(re.findall(r"[A-Za-z0-9%.\-]+", s.lower()))
+            overlap = len(question_terms & terms)
+            if overlap == 0: continue
+            heapq.heappush(scored_sents, (-overlap, next(counter),c, s.strip()))
+    picked = []
+    seen = set()
+    while scored_sents and len(picked) < 5:
+        _,_, c, s = heapq.heappop(scored_sents)
+        if s in seen: continue
+        seen.add(s)
+        cite = f"[{c['doc_id']}:{c['chunk_id'].split('#')[-1]}{(':'+c['speaker']) if c.get('speaker') else ''}]"
+        picked.append(f"- {s} {cite}")
+    if not picked:
+        return "No answer found!"
+    return "Answer:\n" + "\n".join(picked)
+
+
 
 
 
