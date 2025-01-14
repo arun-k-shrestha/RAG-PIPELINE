@@ -133,7 +133,7 @@ index, meta = build_or_load_index(all_chunks)
 
 # ---------------- First-stage retrieval ----------------
 
-def retreive(query:str,top_k=40):
+def retrieve(query:str,top_k=40):
     query_embed = embed_texts([query])
     similarity_scores,closest_vectors_indicies = index.search(query_embed,top_k)
     hits = []
@@ -153,12 +153,12 @@ def retreive(query:str,top_k=40):
 
 reranker = CrossEncoder(RERANK_NAME)
 
-def rerank(query: str,candidates:List[Dict[str,Any]],keep=8):
+def rerank(query: str, candidates: List[Dict[str, Any]], keep=8):
     pairs = [(query, c["text"]) for c in candidates]
-    stores = reranker.predict(pairs, show_progress_bar=False)
-    for c,s in zip(candidates,stores):
-        c["rerank_scores"] = float(s)
-        candidates.sort(key=lambda x : x["rerank_score"], reverse=True)
+    scores = reranker.predict(pairs, show_progress_bar=False)
+    for c, s in zip(candidates, scores):
+        c["rerank_score"] = float(s)
+    candidates.sort(key=lambda x: x["rerank_score"], reverse=True)
     return candidates[:keep]
 
 # ----------------- Generator -----------------
@@ -187,7 +187,24 @@ def summarize_locally(question: str, top_chunks: List[Dict[str, Any]]) -> str:
         return "No answer found!"
     return "Answer:\n" + "\n".join(picked)
 
+# ----------------- main ----------------------
 
+if __name__ == "__main__":
+    rprint("[bold cyan]Local RAG ready[/] (FAISS + SBERT + local cross-encoder).")
+    while True:
+        q = input("\n Question (or 'exit'): ").strip()
+        if q.lower() in {"exit", "quit"}:
+            break
+        hits = retrieve(q, TOP_K)
+        reranked = rerank(q, hits, RERANK_TOP_K)
+        rprint("\n[bold]Top reranked chunks[/]:")
+        for i, c in enumerate(reranked, 1):
+            spk = f"{c['speaker']} " if c.get('speaker') else ""
+            preview = c["text"].strip().replace("\n"," ")
+            if len(preview) > 220: preview = preview[:220] + "…"
+            rprint(f"{i:>2}. ({c['doc_id']}) {spk}- {preview}  [retr={c['score']:.3f}  re={c['rerank_score']:.3f}]")
+        print()
+        print(summarize_locally(q, reranked))
 
 
 
